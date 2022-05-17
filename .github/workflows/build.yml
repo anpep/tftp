@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [ trunk ]
+    branches: [ rfc1350 ]
   pull_request:
-    branches: [ trunk ]
+    branches: [ rfc1350 ]
 
 jobs:
 
