@@ -133,3 +133,33 @@ func (p RRQPacket) Marshal(w io.Writer) error {
 
 	return nil
 }
+
+func (p WRQPacket) Marshal(w io.Writer) error {
+	// Write opcode
+	if err := binary.Write(w, binary.BigEndian, WRQ); err != nil {
+		return err
+	}
+
+	// Check encoding
+	if !isNETASCII(p.filename) || !isNETASCII(string(p.mode)) {
+		return ErrInputNotNETASCII
+	}
+
+	// Write filename
+	if _, err := w.Write([]byte(p.filename)); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte{0}); err != nil {
+		return err
+	}
+
+	// Write mode
+	if _, err := w.Write([]byte(p.mode)); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte{0}); err != nil {
+		return err
+	}
+
+	return nil
+}
