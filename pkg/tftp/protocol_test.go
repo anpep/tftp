@@ -106,3 +106,53 @@ func TestWRQMarshal(t *testing.T) {
 		}
 	})
 }
+
+func TestDATAMarshal(t *testing.T) {
+	t.Run("DATA marshal works for empty packets", buildMarshalTest(
+		t,
+		DATAPacket{
+			blockNumber: 1,
+			data:        []byte{},
+		},
+		[]byte("\x00\x03\x00\x01"),
+	))
+
+	t.Run("DATA marshal works for non-empty packets", buildMarshalTest(
+		t,
+		DATAPacket{
+			blockNumber: 1,
+			data:        []byte("Hello, world!"),
+		},
+		[]byte("\x00\x03\x00\x01Hello, world!"),
+	))
+
+	t.Run("DATA marshal fails when block number is 0", func(t *testing.T) {
+		p := DATAPacket{
+			blockNumber: 0,
+			data:        []byte("Bogus"),
+		}
+		buf := bytes.Buffer{}
+		err := p.Marshal(&buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInvalidBlockNumber {
+			t.Fatalf("got %v want %v", err, ErrInvalidBlockNumber)
+		}
+	})
+
+	t.Run("DATA marshal fails when data is longer than 512 bytes", func(t *testing.T) {
+		p := DATAPacket{
+			blockNumber: 42,
+			data:        bytes.Repeat([]byte("X"), 513),
+		}
+		buf := bytes.Buffer{}
+		err := p.Marshal(&buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrTooMuchData {
+			t.Fatalf("got %v want %v", err, ErrInvalidBlockNumber)
+		}
+	})
+}

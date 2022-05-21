@@ -7,6 +7,12 @@ import (
 	"unicode"
 )
 
+var (
+	ErrInputNotNETASCII   = errors.New("input is not valid NETASCII")
+	ErrInvalidBlockNumber = errors.New("block number is not valid")
+	ErrTooMuchData        = errors.New("data packet contains more than 512 bytes")
+)
+
 // Mode type represents a mode, as defined in the TFTP protocol
 type Mode string
 
@@ -89,8 +95,6 @@ type ERRORPacket struct {
 	errorMsg string
 }
 
-var ErrInputNotNETASCII = errors.New("input is not valid NETASCII")
-
 type Packet interface {
 	Marshal(w io.Writer) error
 }
@@ -158,6 +162,35 @@ func (p WRQPacket) Marshal(w io.Writer) error {
 		return err
 	}
 	if _, err := w.Write([]byte{0}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p DATAPacket) Marshal(w io.Writer) error {
+	// Write opcode
+	if err := binary.Write(w, binary.BigEndian, DATA); err != nil {
+		return err
+	}
+
+	if p.blockNumber == 0 {
+		// Block numbers start from one and increment by one
+		return ErrInvalidBlockNumber
+	}
+
+	// Write block number
+	if err := binary.Write(w, binary.BigEndian, p.blockNumber); err != nil {
+		return err
+	}
+
+	if len(p.data) > 512 {
+		// Data packets can't carry more than 512 bytes
+		return ErrTooMuchData
+	}
+
+	// Write data
+	if _, err := w.Write(p.data); err != nil {
 		return err
 	}
 
