@@ -156,3 +156,11 @@ func TestDATAMarshal(t *testing.T) {
 		}
 	})
 }
+
+func TestACKMarshal(t *testing.T) {
+	t.Run("ACK marshal works", buildMarshalTest(
+		t,
+		ACKPacket{blockNumber: 42},
+		[]byte("\x00\x04\x00\x2A"),
+	))
+}

@@ -196,3 +196,17 @@ func (p DATAPacket) Marshal(w io.Writer) error {
 
 	return nil
 }
+
+func (p ACKPacket) Marshal(w io.Writer) error {
+	// Write opcode
+	if err := binary.Write(w, binary.BigEndian, ACK); err != nil {
+		return err
+	}
+
+	// Write block number
+	if err := binary.Write(w, binary.BigEndian, p.blockNumber); err != nil {
+		return err
+	}
+
+	return nil
+}
