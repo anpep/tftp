@@ -210,3 +210,31 @@ func (p ACKPacket) Marshal(w io.Writer) error {
 
 	return nil
 }
+
+func (p ERRORPacket) Marshal(w io.Writer) error {
+	// Write opcode
+	if err := binary.Write(w, binary.BigEndian, ERROR); err != nil {
+		return err
+	}
+
+	// Write error code
+	if err := binary.Write(w, binary.BigEndian, p.errorCode); err != nil {
+		return err
+	}
+
+	if !isNETASCII(p.errorMsg) {
+		return ErrInputNotNETASCII
+	}
+
+	// Write error message
+	if _, err := w.Write([]byte(p.errorMsg)); err != nil {
+		return err
+	}
+
+	// Write terminating NUL byte
+	if _, err := w.Write([]byte{0}); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -164,3 +164,25 @@ func TestACKMarshal(t *testing.T) {
 		[]byte("\x00\x04\x00\x2A"),
 	))
 }
+
+func TestERRORMarshal(t *testing.T) {
+	t.Run("ERROR marshal works", buildMarshalTest(
+		t,
+		ERRORPacket{errorCode: ErrorCodeNotDefined, errorMsg: "netascii!"},
+		[]byte("\x00\x05\x00\x00netascii!\x00"),
+	))
+	t.Run("ERROR marshal fails with invalid message encoding", func(t *testing.T) {
+		p := ERRORPacket{
+			errorCode: ErrorCodeIllegalOp,
+			errorMsg:  "ñot ñetascii!",
+		}
+		buf := bytes.Buffer{}
+		err := p.Marshal(&buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInputNotNETASCII {
+			t.Fatalf("got %v want %v", err, ErrInputNotNETASCII)
+		}
+	})
+}
