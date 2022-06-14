@@ -29,16 +29,16 @@ func TestRRQMarshal(t *testing.T) {
 	t.Run("RRQ marshal works", buildMarshalTest(
 		t,
 		RRQPacket{
-			filename: "/hello.txt",
-			mode:     ModeOctet,
+			Filename: "/hello.txt",
+			Mode:     ModeOctet,
 		},
 		[]byte("\x00\x01/hello.txt\x00octet\x00"),
 	))
 
 	t.Run("RRQ marshal fails with invalid filename encoding", func(t *testing.T) {
 		p := RRQPacket{
-			filename: "not ÁSCII",
-			mode:     ModeOctet,
+			Filename: "not ÁSCII",
+			Mode:     ModeOctet,
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
@@ -52,8 +52,8 @@ func TestRRQMarshal(t *testing.T) {
 
 	t.Run("RRQ marshal fails with invalid mode encoding", func(t *testing.T) {
 		p := RRQPacket{
-			filename: "",
-			mode:     "\x00",
+			Filename: "",
+			Mode:     "\x00",
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
@@ -66,20 +66,75 @@ func TestRRQMarshal(t *testing.T) {
 	})
 }
 
+func TestRRQUnmarshal(t *testing.T) {
+	t.Run("RRQ unmarshal works", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x01/hello.txt\x00octet\x00")
+		p := RRQPacket{}
+		if err := p.Unmarshal(buf); err != nil {
+			t.Fatal("got an error but didn't want one")
+		}
+	})
+
+	t.Run("RRQ unmarshal with mismatching opcode fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x02/hello.txt\x00octet\x00")
+		p := RRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrMismatchingOpcode {
+			t.Fatalf("got %v want %v", err, ErrMismatchingOpcode)
+		}
+	})
+
+	t.Run("RRQ unmarshal with invalid filename encoding fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x01/helló.txt\x00octet\x00")
+		p := RRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInputNotNETASCII {
+			t.Fatalf("got %v want %v", err, ErrInputNotNETASCII)
+		}
+	})
+
+	t.Run("RRQ unmarshal with invalid mode encoding fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x01/hello.txt\x00octét\x00")
+		p := RRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInputNotNETASCII {
+			t.Fatalf("got %v want %v", err, ErrInputNotNETASCII)
+		}
+	})
+
+	t.Run("RRQ unmarshal with missing fields fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x01/hello.txt")
+		p := RRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+	})
+}
+
 func TestWRQMarshal(t *testing.T) {
 	t.Run("WRQ marshal works", buildMarshalTest(
 		t,
 		WRQPacket{
-			filename: "/write.txt",
-			mode:     ModeNETASCII,
+			Filename: "/write.txt",
+			Mode:     ModeNETASCII,
 		},
 		[]byte("\x00\x02/write.txt\x00netascii\x00"),
 	))
 
 	t.Run("WRQ marshal fails with invalid filename encoding", func(t *testing.T) {
 		p := WRQPacket{
-			filename: "not ÁSCII",
-			mode:     ModeOctet,
+			Filename: "not ÁSCII",
+			Mode:     ModeOctet,
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
@@ -93,8 +148,8 @@ func TestWRQMarshal(t *testing.T) {
 
 	t.Run("WRQ marshal fails with invalid mode encoding", func(t *testing.T) {
 		p := WRQPacket{
-			filename: "/fíle.txt",
-			mode:     "óctet",
+			Filename: "/fíle.txt",
+			Mode:     "óctet",
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
@@ -111,8 +166,8 @@ func TestDATAMarshal(t *testing.T) {
 	t.Run("DATA marshal works for empty packets", buildMarshalTest(
 		t,
 		DATAPacket{
-			blockNumber: 1,
-			data:        []byte{},
+			BlockNumber: 1,
+			Data:        []byte{},
 		},
 		[]byte("\x00\x03\x00\x01"),
 	))
@@ -120,16 +175,16 @@ func TestDATAMarshal(t *testing.T) {
 	t.Run("DATA marshal works for non-empty packets", buildMarshalTest(
 		t,
 		DATAPacket{
-			blockNumber: 1,
-			data:        []byte("Hello, world!"),
+			BlockNumber: 1,
+			Data:        []byte("Hello, world!"),
 		},
 		[]byte("\x00\x03\x00\x01Hello, world!"),
 	))
 
 	t.Run("DATA marshal fails when block number is 0", func(t *testing.T) {
 		p := DATAPacket{
-			blockNumber: 0,
-			data:        []byte("Bogus"),
+			BlockNumber: 0,
+			Data:        []byte("Bogus"),
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
@@ -143,8 +198,8 @@ func TestDATAMarshal(t *testing.T) {
 
 	t.Run("DATA marshal fails when data is longer than 512 bytes", func(t *testing.T) {
 		p := DATAPacket{
-			blockNumber: 42,
-			data:        bytes.Repeat([]byte("X"), 513),
+			BlockNumber: 42,
+			Data:        bytes.Repeat([]byte("X"), 513),
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
@@ -160,7 +215,7 @@ func TestDATAMarshal(t *testing.T) {
 func TestACKMarshal(t *testing.T) {
 	t.Run("ACK marshal works", buildMarshalTest(
 		t,
-		ACKPacket{blockNumber: 42},
+		ACKPacket{BlockNumber: 42},
 		[]byte("\x00\x04\x00\x2A"),
 	))
 }
@@ -168,13 +223,13 @@ func TestACKMarshal(t *testing.T) {
 func TestERRORMarshal(t *testing.T) {
 	t.Run("ERROR marshal works", buildMarshalTest(
 		t,
-		ERRORPacket{errorCode: ErrorCodeNotDefined, errorMsg: "netascii!"},
+		ERRORPacket{ErrorCode: ErrorCodeNotDefined, ErrorMsg: "netascii!"},
 		[]byte("\x00\x05\x00\x00netascii!\x00"),
 	))
 	t.Run("ERROR marshal fails with invalid message encoding", func(t *testing.T) {
 		p := ERRORPacket{
-			errorCode: ErrorCodeIllegalOp,
-			errorMsg:  "ñot ñetascii!",
+			ErrorCode: ErrorCodeIllegalOp,
+			ErrorMsg:  "ñot ñetascii!",
 		}
 		buf := bytes.Buffer{}
 		err := p.Marshal(&buf)
