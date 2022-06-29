@@ -6,11 +6,29 @@ import (
 	"testing"
 )
 
-func buildMarshalTest(t *testing.T, p Packet, want []byte) func(t *testing.T) {
+func TestIsNETASCII(t *testing.T) {
+	t.Run("Empty string is recognized as valid", func(t *testing.T) {
+		if !isNETASCII("") {
+			t.Fatal("empty string is not recognized as valid")
+		}
+	})
+	t.Run("Valid NETASCII is recognized as valid", func(t *testing.T) {
+		if !isNETASCII("hello, world!") {
+			t.Fatal("valid NETASCII string was not recognized as valid")
+		}
+	})
+	t.Run("Invalid NETASCII is recognized as invalid", func(t *testing.T) {
+		if isNETASCII("héllo, world!") {
+			t.Fatal("invalid NETASCII string was not recognized as invalid")
+		}
+	})
+}
+
+func buildMarshalTest(t *testing.T, got Packet, want []byte) func(t *testing.T) {
 	t.Helper()
 	return func(t *testing.T) {
 		buf := bytes.Buffer{}
-		err := p.Marshal(&buf)
+		err := got.Marshal(&buf)
 		if err != nil {
 			t.Fatal("got an error but didn't want one")
 		}
@@ -72,6 +90,12 @@ func TestRRQUnmarshal(t *testing.T) {
 		p := RRQPacket{}
 		if err := p.Unmarshal(buf); err != nil {
 			t.Fatal("got an error but didn't want one")
+		}
+		if p.Filename != "/hello.txt" {
+			t.Fatalf("got %v want %v", p.Filename, "/hello.txt")
+		}
+		if p.Mode != ModeOctet {
+			t.Fatalf("got %v want %v", p.Mode, ModeOctet)
 		}
 	})
 
@@ -162,6 +186,67 @@ func TestWRQMarshal(t *testing.T) {
 	})
 }
 
+func TestWRQUnmarshal(t *testing.T) {
+	t.Run("WRQ unmarshal works", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x02/hello.txt\x00octet\x00")
+		p := WRQPacket{}
+		if err := p.Unmarshal(buf); err != nil {
+			t.Fatal("got an error but didn't want one")
+		}
+		if p.Filename != "/hello.txt" {
+			t.Fatalf("got %v want %v", p.Filename, "/hello.txt")
+		}
+		if p.Mode != ModeOctet {
+			t.Fatalf("got %v want %v", p.Mode, ModeOctet)
+		}
+	})
+
+	t.Run("WRQ unmarshal with mismatching opcode fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x01/hello.txt\x00octet\x00")
+		p := WRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrMismatchingOpcode {
+			t.Fatalf("got %v want %v", err, ErrMismatchingOpcode)
+		}
+	})
+
+	t.Run("WRQ unmarshal with invalid filename encoding fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x02/helló.txt\x00octet\x00")
+		p := WRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInputNotNETASCII {
+			t.Fatalf("got %v want %v", err, ErrInputNotNETASCII)
+		}
+	})
+
+	t.Run("WRQ unmarshal with invalid mode encoding fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x02/hello.txt\x00octét\x00")
+		p := WRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInputNotNETASCII {
+			t.Fatalf("got %v want %v", err, ErrInputNotNETASCII)
+		}
+	})
+
+	t.Run("WRQ unmarshal with missing fields fails", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x01/hello.txt")
+		p := WRQPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+	})
+}
+
 func TestDATAMarshal(t *testing.T) {
 	t.Run("DATA marshal works for empty packets", buildMarshalTest(
 		t,
@@ -212,12 +297,65 @@ func TestDATAMarshal(t *testing.T) {
 	})
 }
 
+func TestDATAUnmarshal(t *testing.T) {
+	t.Run("DATA unmarshal works", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x03\x00\x01Hello, world!")
+		p := DATAPacket{}
+		if err := p.Unmarshal(buf); err != nil {
+			t.Fatal("got an error but didn't want one")
+		}
+		if p.BlockNumber != 1 {
+			t.Fatalf("got block number %v want %v", p.BlockNumber, 1)
+		}
+		if !bytes.Equal(p.Data, []byte("Hello, world!")) {
+			t.Fatalf("got data %v want %v", p.Data, []byte("Hello, world!"))
+		}
+	})
+
+	t.Run("DATA unmarshal fails with mismatching opcode", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x04\x00\x01Hello, world!")
+		p := DATAPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrMismatchingOpcode {
+			t.Fatalf("got %v want %v", err, ErrMismatchingOpcode)
+		}
+	})
+
+	t.Run("DATA unmarshal fails with block number equal to 0", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x03\x00\x00Hello, world!")
+		p := DATAPacket{}
+		err := p.Unmarshal(buf)
+		if err == nil {
+			t.Fatal("wanted an error but didn't get one")
+		}
+		if err != ErrInvalidBlockNumber {
+			t.Fatalf("got %v want %v", err, ErrMismatchingOpcode)
+		}
+	})
+}
+
 func TestACKMarshal(t *testing.T) {
 	t.Run("ACK marshal works", buildMarshalTest(
 		t,
 		ACKPacket{BlockNumber: 42},
 		[]byte("\x00\x04\x00\x2A"),
 	))
+}
+
+func TestACKUnmarshal(t *testing.T) {
+	t.Run("ACK unmarshal works", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x04\x00\x3F")
+		p := ACKPacket{}
+		if err := p.Unmarshal(buf); err != nil {
+			t.Fatal("got an error but didn't want one")
+		}
+		if p.BlockNumber != 0x3F {
+			t.Fatalf("got block number %v want %v", p.BlockNumber, 0x3F)
+		}
+	})
 }
 
 func TestERRORMarshal(t *testing.T) {
