@@ -139,7 +139,7 @@ func expectOpcode(r io.Reader, expected Opcode) (err error) {
 	return
 }
 
-func (p RRQPacket) Marshal(w io.Writer) error {
+func (p *RRQPacket) Marshal(w io.Writer) error {
 	// Write opcode
 	if err := binary.Write(w, binary.BigEndian, RRQ); err != nil {
 		return NewIOError("can't write opcode", err)
@@ -201,7 +201,7 @@ func (p *RRQPacket) Unmarshal(r io.Reader) error {
 	return nil
 }
 
-func (p WRQPacket) Marshal(w io.Writer) error {
+func (p *WRQPacket) Marshal(w io.Writer) error {
 	// Write opcode
 	if err := binary.Write(w, binary.BigEndian, WRQ); err != nil {
 		return NewIOError("can't write opcode", err)
@@ -263,7 +263,7 @@ func (p *WRQPacket) Unmarshal(r io.Reader) error {
 	return nil
 }
 
-func (p DATAPacket) Marshal(w io.Writer) error {
+func (p *DATAPacket) Marshal(w io.Writer) error {
 	// Write opcode
 	if err := binary.Write(w, binary.BigEndian, DATA); err != nil {
 		return NewIOError("can't write opcode", err)
@@ -317,7 +317,7 @@ func (p *DATAPacket) Unmarshal(r io.Reader) error {
 	return nil
 }
 
-func (p ACKPacket) Marshal(w io.Writer) error {
+func (p *ACKPacket) Marshal(w io.Writer) error {
 	// Write opcode
 	if err := binary.Write(w, binary.BigEndian, ACK); err != nil {
 		return NewIOError("can't write opcode", err)
@@ -345,7 +345,7 @@ func (p *ACKPacket) Unmarshal(r io.Reader) error {
 	return nil
 }
 
-func (p ERRORPacket) Marshal(w io.Writer) error {
+func (p *ERRORPacket) Marshal(w io.Writer) error {
 	// Write opcode
 	if err := binary.Write(w, binary.BigEndian, ERROR); err != nil {
 		return NewIOError("can't write opcode", err)
@@ -390,7 +390,7 @@ func (p *ERRORPacket) Unmarshal(r io.Reader) error {
 	if err != nil {
 		return NewIOError("can't read error message", err)
 	}
-
+	errorMsg = errorMsg[:len(errorMsg)-1]
 	if !isNETASCII(errorMsg) {
 		return ErrInputNotNETASCII
 	}

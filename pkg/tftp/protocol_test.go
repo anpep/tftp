@@ -46,7 +46,7 @@ func buildMarshalTest(t *testing.T, got Packet, want []byte) func(t *testing.T) 
 func TestRRQMarshal(t *testing.T) {
 	t.Run("RRQ marshal works", buildMarshalTest(
 		t,
-		RRQPacket{
+		&RRQPacket{
 			Filename: "/hello.txt",
 			Mode:     ModeOctet,
 		},
@@ -148,7 +148,7 @@ func TestRRQUnmarshal(t *testing.T) {
 func TestWRQMarshal(t *testing.T) {
 	t.Run("WRQ marshal works", buildMarshalTest(
 		t,
-		WRQPacket{
+		&WRQPacket{
 			Filename: "/write.txt",
 			Mode:     ModeNETASCII,
 		},
@@ -250,7 +250,7 @@ func TestWRQUnmarshal(t *testing.T) {
 func TestDATAMarshal(t *testing.T) {
 	t.Run("DATA marshal works for empty packets", buildMarshalTest(
 		t,
-		DATAPacket{
+		&DATAPacket{
 			BlockNumber: 1,
 			Data:        []byte{},
 		},
@@ -259,7 +259,7 @@ func TestDATAMarshal(t *testing.T) {
 
 	t.Run("DATA marshal works for non-empty packets", buildMarshalTest(
 		t,
-		DATAPacket{
+		&DATAPacket{
 			BlockNumber: 1,
 			Data:        []byte("Hello, world!"),
 		},
@@ -340,7 +340,7 @@ func TestDATAUnmarshal(t *testing.T) {
 func TestACKMarshal(t *testing.T) {
 	t.Run("ACK marshal works", buildMarshalTest(
 		t,
-		ACKPacket{BlockNumber: 42},
+		&ACKPacket{BlockNumber: 42},
 		[]byte("\x00\x04\x00\x2A"),
 	))
 }
@@ -361,7 +361,7 @@ func TestACKUnmarshal(t *testing.T) {
 func TestERRORMarshal(t *testing.T) {
 	t.Run("ERROR marshal works", buildMarshalTest(
 		t,
-		ERRORPacket{ErrorCode: ErrorCodeNotDefined, ErrorMsg: "netascii!"},
+		&ERRORPacket{ErrorCode: ErrorCodeNotDefined, ErrorMsg: "netascii!"},
 		[]byte("\x00\x05\x00\x00netascii!\x00"),
 	))
 	t.Run("ERROR marshal fails with invalid message encoding", func(t *testing.T) {
@@ -376,6 +376,22 @@ func TestERRORMarshal(t *testing.T) {
 		}
 		if err != ErrInputNotNETASCII {
 			t.Fatalf("got %v want %v", err, ErrInputNotNETASCII)
+		}
+	})
+}
+
+func TestERRORUnmarshal(t *testing.T) {
+	t.Run("ERROR unmarshal works", func(t *testing.T) {
+		buf := bytes.NewBufferString("\x00\x05\x00\x07my error message\x00")
+		p := ERRORPacket{}
+		if err := p.Unmarshal(buf); err != nil {
+			t.Fatal("got an error but didn't want one")
+		}
+		if p.ErrorCode != ErrorCodeNoSuchUser {
+			t.Fatalf("got error code %v want %v", p.ErrorCode, ErrorCodeNoSuchUser)
+		}
+		if p.ErrorMsg != "my error message" {
+			t.Fatalf("got error message %v want %v", p.ErrorMsg, "my error message")
 		}
 	})
 }
