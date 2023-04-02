@@ -109,6 +109,28 @@ const (
 	ErrorCodeNoSuchUser        ErrorCode = 7
 )
 
+func (e ErrorCode) Error() string {
+	switch e {
+	case ErrorCodeNotDefined:
+		return "error not defined"
+	case ErrorCodeFileNotFound:
+		return "file not found"
+	case ErrorCodeAccessViolation:
+		return "access violation"
+	case ErrorCodeDiskFull:
+		return "disk full"
+	case ErrorCodeIllegalOp:
+		return "illegal TFTP operation"
+	case ErrorCodeUnknownTransferID:
+		return "unknown transfer ID"
+	case ErrorCodeFileAlreadyExists:
+		return "file already exists"
+	case ErrorCodeNoSuchUser:
+		return "no such user"
+	}
+	return "unknown error"
+}
+
 // ERRORPacket represents an Error packet.
 // ERROR packets are sent when to acknowledge any kind of packet which results in an unsuccessful outcome.
 type ERRORPacket struct {
